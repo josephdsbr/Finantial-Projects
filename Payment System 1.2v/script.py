@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import psycopg2
+import json
 
 """ Function which is going to calculate the factor to the final client """
 
@@ -51,17 +52,53 @@ def InstallmentPayment(date, type, installment, credit_days = 30, debit_days = 2
     return payment_date()
 """ A payment modality which antecipates the payments """
 
-def AntecipationPayment(date, type, credit_days = 0, debit_days = 2):
+def AntPayment(date, type, credit_days = 0, debit_days = 2):
     payment_date = add_days(date, credit_days) if type == 'CREDIT' else add_days(date, debit_days)
     return payment_date
 
-def AntecipationFactor(n, i):
+def AntFactor(n, i):
     factor = ((1 + i)**n - 1)/((1+i)**n*i)
     return factor
 
-def AntecipacitonRate(payment_date, payment_exp_date, antecipation_rate, installmentValue):
+def AntValue(payment_date, payment_exp_date, antecipation_rate, installmentValue):
     # diferences between the expected day of payment and the day of antecipation
     n = (payment_exp_date - payment_date).days/30
-    factor = AntecipationFactor(n, antecipation_rate)
+    factor = AntFactor(n, antecipation_rate)
     ant_value = factor*installmentValue
     return ant_value
+
+class transaction():
+    def __init__(self, json_file):
+        """
+
+        Loading the JSON file into our class
+        
+        """
+        self.data = json.load(open(json_file, 'r', encoding = 'utf-8'))
+
+        """
+
+        Separating some characteristics of the transaction into the class attributes
+        
+        """
+
+        
+        self.flatRate = self.data["merchant"]["flatRate"]
+        self.fix_value = self.data["merchant"]["fix_value"]
+        self.client = self.data["merchant"]["client"]
+        self.antRate = self.data["merchant"]["antRate"]
+
+        self.date = datetime.strptime(self.data["transaction"]["date"], "%Y-%m-%d %H:%M:%S")
+        self.type = self.data["transaction"]["type"]
+        self.antecipation = self.data["transaction"]["antecipation"]
+        self.value = self.data["transaction"]["value"]
+        self.installment = self.data["transaction"]["installment"] 
+
+        """ Creating new features from the existing informations """
+
+        self.installmentValue = self.value/self.installment
+        self.dateLastPayment = (self.date + timedelta(days = 30*self.installment))
+        self.datePayment = self.date + timedelta(days = 1)
+        self.antValue = AntValue(self.datePayment, self.dateLastPayment, self.antRate, self.installmentValue)
+
+t = transaction('dt.json')

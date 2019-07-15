@@ -1,0 +1,22 @@
+{
+    "id":12536,
+    "client":{
+        "firstName":"José Vinícius",
+        "lastName":"Santos de Melo"
+    },
+    "merchant":{
+        "merchantIdentifier":4025,
+        "merchantName":"ABC Lojas",
+        "flatRate":0.05,
+        "fix_value":0,
+        "client":false,
+        "antRate":0.025
+    },
+    "transaction":{
+        "date":"2019-07-14 17:48:03",
+        "installment":8,
+        "type":"credit",
+        "antecipation":true,
+        "value":195.35
+    }
+}
