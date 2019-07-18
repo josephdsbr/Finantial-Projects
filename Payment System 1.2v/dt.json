@@ -16,7 +16,7 @@
         "date":"2019-07-14 17:48:03",
         "installment":8,
         "type":"credit",
-        "antecipation":true,
+        "antecipation":false,
         "value":195.35
     }
 }

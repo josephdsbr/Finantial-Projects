@@ -60,6 +60,10 @@ def AntFactor(n, i):
     factor = ((1 + i)**n - 1)/((1+i)**n*i)
     return factor
 
+def datePayment(date, installment, type):
+    payment_date = [add_days(x = date, d = 30, t = i).date() for i in range(1, installment + 1)] if type == 'credit' else add_days(x = date, d = 2).date()
+    return payment_date
+
 def AntValue(payment_date, payment_exp_date, antecipation_rate, installmentValue):
     # diferences between the expected day of payment and the day of antecipation
     n = (payment_exp_date - payment_date).days/30
@@ -70,21 +74,17 @@ def AntValue(payment_date, payment_exp_date, antecipation_rate, installmentValue
 class transaction():
     def __init__(self, json_file):
         """
-
         Loading the JSON file into our class
-        
         """
         self.data = json.load(open(json_file, 'r', encoding = 'utf-8'))
 
         """
-
         Separating some characteristics of the transaction into the class attributes
-        
         """
-
-        
         self.flatRate = self.data["merchant"]["flatRate"]
         self.fix_value = self.data["merchant"]["fix_value"]
+        self.clientName = self.data["merchant"]["merchantName"]
+        self.clientId = self.data["merchant"]["merchantIdentifier"]
         self.client = self.data["merchant"]["client"]
         self.antRate = self.data["merchant"]["antRate"]
 
@@ -97,8 +97,24 @@ class transaction():
         """ Creating new features from the existing informations """
 
         self.installmentValue = self.value/self.installment
-        self.dateLastPayment = (self.date + timedelta(days = 30*self.installment))
-        self.datePayment = self.date + timedelta(days = 1)
-        self.antValue = AntValue(self.datePayment, self.dateLastPayment, self.antRate, self.installmentValue)
+        #self.dateLastPayment = (self.date + timedelta(days = 30*self.installment))
+        #self.datePayment = self.date + timedelta(days = 1)
+        #self.antValue = AntValue(self.datePayment, self.dateLastPayment, self.antRate, self.installmentValue)
+    
+    def PaymentFlux(self):
+        if self.type == 'debit':
+            self.datePayment = datePayment(self.date, )
+            informations = {'ClientID':[self.clientId], 'Client':[self.clientName], 'Value':[self.installmentValue]}
+        if self.antecipation == True:
+            informations = {'ClientID':[self.clientId],'Client':[self.clientName], 'AntRate':[self.antRate], 'Value':[self.antValue], 'Date':[self.datePayment.date()]}
 
+            self.payment_flux = pd.DataFrame(informations)
+            return self.payment_flux
+        else:
+            k = self.installment
+            informations = {'ClientID':np.repeat([self.clientId], k) ,'Client':np.repeat([self.clientName], k), 'AntRate':np.repeat([self.antRate], k), 'Installment':list(range(1, k + 1)), 'Value':np.repeat([self.installmentValue], k), 'Date':np.repeat([self.datePayment.date()], k)}
+            self.payment_flux = pd.DataFrame(informations)
+            return self.payment_flux
+            
+            
 t = transaction('dt.json')
