@@ -7,7 +7,7 @@
     "merchant":{
         "merchantIdentifier":4025,
         "merchantName":"ABC Lojas",
-        "flatRate":0.05,
+        "flatRate":0.011,
         "fix_value":0,
         "client":false,
         "antRate":0.025

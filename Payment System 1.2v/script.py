@@ -11,11 +11,6 @@ def CalculateClientCoefficientFactor(installment, flatRate, client):
     factor = (1 + flatRate)**(installment) if client == True else 1
     return factor
 
-""" Function which is going to calculate the factor to the merchant """
-
-def CalculateMerchantCoefficientFactor(installment, flatRate, client):
-    factor = (1 + flatRate)**(installment) if client == False else 1
-
 """ Function to calculate the final value to the final client """
 
 def ClientValue(installment, flatRate, value, client, fix_value = 0):
@@ -23,12 +18,13 @@ def ClientValue(installment, flatRate, value, client, fix_value = 0):
     client_value = value*factor
     return client_value + fix_value
 
-""" Function to calculate the final value to the merchant """
+""" Function to calculate the payment value to the merchant """
 
 def MerchantValue(installment, flatRate, value, client, fix_value = 0):
-    factor = CalculateMerchantCoefficientFactor(installment, flatRate, client)
-    merchant_value = value*factor
-    return merchant_value + fix_value
+    cv = ClientValue(installment, flatRate, value, client, fix_value) - fix_value
+    factor = (1 + flatRate)**(installment)
+    merchantValue = round(cv/factor,2)
+    return merchantValue
 
 """ Creating a function which add days """
 
@@ -38,28 +34,15 @@ def add_days(x, d, k = 0, t = 1):
     iso_date = new_date
     return new_date
 
-""" Creating a function which is going to Help in SPay function """
-
-def week_step(x, m, di = 3):
-    floor_date = x - timedelta(days = x.weekday())
-    new_date = floor_date + timedelta(days = di + 7*m)
-    return new_date.date()
-
 """ A payment modality which calculates the payment_date based on split of transactions into payment fluxs """
-
-def InstallmentPayment(date, type, installment, credit_days = 30, debit_days = 2):
-    payment_date = add_days(date, d = credit_days, t = installment) if type == 'CREDIT' else add_days(x, d = debit_days)
-    return payment_date()
-""" A payment modality which antecipates the payments """
-
-def AntPayment(date, type, credit_days = 0, debit_days = 2):
-    payment_date = add_days(date, credit_days) if type == 'CREDIT' else add_days(date, debit_days)
-    return payment_date
-
 def AntFactor(n, i):
     factor = ((1 + i)**n - 1)/((1+i)**n*i)
     return factor
 
+def AntPayment(date, type, credit_days = 0, debit_days = 2):
+    payment_date = add_days(date, credit_days) if type == 'CREDIT' else add_days(date, debit_days)
+    return payment_date
+    
 def datePayment(date, installment, type):
     payment_date = [add_days(x = date, d = 30, t = i).date() for i in range(1, installment + 1)] if type == 'credit' else add_days(x = date, d = 2).date()
     return payment_date
@@ -77,7 +60,6 @@ class transaction():
         Loading the JSON file into our class
         """
         self.data = json.load(open(json_file, 'r', encoding = 'utf-8'))
-
         """
         Separating some characteristics of the transaction into the class attributes
         """
@@ -89,32 +71,29 @@ class transaction():
         self.antRate = self.data["merchant"]["antRate"]
 
         self.date = datetime.strptime(self.data["transaction"]["date"], "%Y-%m-%d %H:%M:%S")
+        self.installment = self.data['transaction']['installment']
         self.type = self.data["transaction"]["type"]
         self.antecipation = self.data["transaction"]["antecipation"]
         self.value = self.data["transaction"]["value"]
+        self.clientValue = ClientValue(self.installment, self.flatRate, self.value, self.client, self.fix_value)
+        self.merchantValue = MerchantValue(self.installment, self.flatRate, self.value, self.client, self.fix_value)
         self.installment = self.data["transaction"]["installment"] 
 
         """ Creating new features from the existing informations """
 
         self.installmentValue = self.value/self.installment
+
+        dt = {'date':self.date, 'type':self.type, 'ant':self.antecipation, 'installment':self.installment, 'value':self.value, 'clientValue':self.clientValue, 'merchantValue':self.merchantValue, 'clientId':self.clientId, 'flatRate':self.flatRate, 'fixValue':self.fix_value, 'clientResp':self.client, 'antRate':self.antRate}
+
+        self.transaction = pd.DataFrame(dt, index = [0])
         #self.dateLastPayment = (self.date + timedelta(days = 30*self.installment))
         #self.datePayment = self.date + timedelta(days = 1)
         #self.antValue = AntValue(self.datePayment, self.dateLastPayment, self.antRate, self.installmentValue)
     
-    def PaymentFlux(self):
-        if self.type == 'debit':
-            self.datePayment = datePayment(self.date, )
-            informations = {'ClientID':[self.clientId], 'Client':[self.clientName], 'Value':[self.installmentValue]}
-        if self.antecipation == True:
-            informations = {'ClientID':[self.clientId],'Client':[self.clientName], 'AntRate':[self.antRate], 'Value':[self.antValue], 'Date':[self.datePayment.date()]}
+    def MerchantPayment(self):
+        split = pd.concat([self.transaction]*self.installment) if self.type == 'credit' else self.transaction
+        split['installmentValue'] =  [x/y for x,y in zip(split.merchantValue, split.installment)]
+        split['paymentDate'] = datePayment(self.date, self.installment, self.type)
+        return split
 
-            self.payment_flux = pd.DataFrame(informations)
-            return self.payment_flux
-        else:
-            k = self.installment
-            informations = {'ClientID':np.repeat([self.clientId], k) ,'Client':np.repeat([self.clientName], k), 'AntRate':np.repeat([self.antRate], k), 'Installment':list(range(1, k + 1)), 'Value':np.repeat([self.installmentValue], k), 'Date':np.repeat([self.datePayment.date()], k)}
-            self.payment_flux = pd.DataFrame(informations)
-            return self.payment_flux
-            
-            
 t = transaction('dt.json')
